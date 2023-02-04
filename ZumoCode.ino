@@ -1,6 +1,5 @@
 #include <Wire.h>
 #include <Zumo32U4.h>
-#include <cmath>
 
 #define getXY 0
 #define printing 1
@@ -26,7 +25,9 @@ const double ticks_per_in = ticks_per_rev / in_per_rev;
 uint8_t x;
 uint8_t y;
 uint8_t state;
-int array[]
+int array[5];
+
+void forward(double inches, int motorSpeed = 150);
 
 void printStuff() { //Prints the menu, saves a little space to have it as a function
   display.clear();
@@ -67,6 +68,9 @@ void loop() {
         state++;
         display.clear();
         display.print(F("yay"));
+        delay(1000);
+        ledYellow(1);
+        forward(120);
       }
       break;
     case 1:
@@ -125,7 +129,7 @@ void forward(double inches, int motorSpeed = 150) {
   encoders.getCountsAndResetLeft(); // set counts to 0 (overflows at 32767 ticks, >10ft)
   encoders.getCountsAndResetRight();
   
-  motors.setSpeeds(motorSpeed); // activate motors
+  motors.setSpeeds(motorSpeed,motorSpeed); // activate motors
 
   bool transit = true;
   while (transit) {
@@ -136,7 +140,7 @@ void forward(double inches, int motorSpeed = 150) {
     if ((error_L<=0) || (error_R<=0)) { transit = false; }
   }
 
-  motors.setSpeeds(0); // stop motors
+  motors.setSpeeds(0,0); // stop motors
 }
 
 void paintLine(double inches);
