@@ -10,8 +10,11 @@ Zumo32U4ButtonA buttonA;
 Zumo32U4ButtonB buttonB;
 Zumo32U4ButtonC buttonC;
 Zumo32U4LCD display;
+Zumo32U4IMU imu;
 Zumo32U4Encoders encoders;
 Zumo32U4Motors motors;
+
+#include "TurnSensor.h" // leave at this location- it needs Zumo objects
 
 // Encoder constants
 const double tread_diam_in = 1.53543; // total height of treads, verified in CAD
@@ -36,6 +39,11 @@ void printStuff() { //Prints the menu, saves a little space to have it as a func
 }
 
 void setup() {
+  // DO NOT REMOVE; needed for gyro/turning
+  turnSensorSetup(); 
+  delay(500);
+  turnSensorReset();
+
   // put your setup code here, to run once:
   x = 0;
   y = 0;
@@ -66,17 +74,49 @@ void loop() {
   }
 }
 
-void drawImage(double width_in, double height_in, int rows);
+// TODO finish, once the image and paintLine() are ready
+void drawImage(double width_in, double height_in, int rows) {
+  double row_height_in = height_in / rows;
+  for (int i = 0; i < rows; i++) {
+    paintLine(width_in);
+    turnCW(90);
+    forward(row_height_in);
+    turnCW(90);
+  }
+}
 
-void turnCW(double degrees);
-void turnCCW(double degrees);
+/**
+ * Turns clockwise by running the motors in opposite direction, for
+ * specified angle delta.
+ * 
+ * Parameters
+ * degrees    : positive clockwise angle to turn, in degrees
+ * motorSpeed : motor rate to travel at (0-400, unitless)
+*/
+void turnCW(double degrees, int motorSpeed = 100) {
+  turnSensorReset();
+  turnSensorUpdate();
+  double init_angle = turnAngle;
+  double setpoint = init_angle + (turnAngle1*degrees);
+
+  motors.setSpeeds(motorSpeed, -motorSpeed); // activate motors
+
+  bool transit = true;
+  while (transit) {
+    turnSensorUpdate();
+    double error = setpoint - turnAngle;
+    if (error <= 0) { transit = false; }
+  }
+
+  motors.setSpeeds(0, 0); // stop motors
+}
 
 /**
  * Moves forward specified distance at constant, specified motor speed. 
  * Moves until at least one encoder hits its setpoint.
  * 
  * Paramaters
- * inches     : distance to travel in inches (max 120in)
+ * inches     : positive distance to travel in inches (max 120in)
  * motorSpeed : motor rate to travel at (0-400, unitless)
 */
 void forward(double inches, int motorSpeed = 150) {
@@ -99,4 +139,4 @@ void forward(double inches, int motorSpeed = 150) {
   motors.setSpeeds(0); // stop motors
 }
 
-//void paintLine(double inches, );
+void paintLine(double inches);
