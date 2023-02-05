@@ -201,14 +201,32 @@ void paintLine(double inches, char pixels[px_x], bool leftToRight = true) {
     int error_L = setpoint - delta_L; // ticks to setpoint (negative if passed)
     int error_R = setpoint - delta_R;
 
-    //TODO add LED code here
+    // LED code
     double delta_avg = (delta_L + delta_R) / 2;
     double progress = delta_avg / setpoint;
+    if (!leftToRight) { progress = 1 - progress; } // invert if zagging, otherwise leave as a zig
     int closestPixel_indx = int(round(progress*px_x));
     char closestPixel;
-    if (leftToRight) { closestPixel = pixels[closestPixel_indx]; }
-    else             { closestPixel = pixels[1-closestPixel_indx]; }
-
+    // if (leftToRight) { closestPixel = pixels[closestPixel_indx]; } // left for debugging, but not meant to be included as code
+    // else             { closestPixel = pixels[px_x-closestPixel_indx-1]; }
+    switch (closestPixel) {
+      case 'W': // white -> no LED
+        ledRed(0);
+        ledYellow(0);
+        ledGreen(0);
+      case 'Y': // yellow -> yellow LED
+        ledRed(0);
+        ledYellow(1);
+        ledGreen(0);
+      case 'B': // black -> red LED
+        ledRed(1);
+        ledYellow(0);
+        ledGreen(0);
+      default: // unparsable char -> no LED
+        ledRed(0);
+        ledYellow(0);
+        ledGreen(0);
+    }
 
     if ((error_L<=0) || (error_R<=0)) { transit = false; }
   }
