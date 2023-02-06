@@ -45,8 +45,10 @@ int16_t gyroOffset;
 // between readings of the gyro.
 uint16_t gyroLastUpdate = 0;
 
-// paintLine prototype so it can be used in main loop 
+// prototypes so they can be used in main loop 
 void paintLine(double inches, char pixels[54], bool leftToRight = true, int motorSpeed = 150);
+void turnCW(double degrees, int motorSpeed = 100);
+void forward(double inches, int motorSpeed = 150);
 
 
 // This should be called to set the starting point for measuring
@@ -128,12 +130,4 @@ void turnSensorSetup()
   // user presses A.
   display.clear();
   turnSensorReset();
-  while (!buttonA.getSingleDebouncedRelease())
-  {
-    turnSensorUpdate();
-    display.gotoXY(0, 0);
-    display.print((((int32_t)turnAngle >> 16) * 360) >> 16);
-    display.print(F("   "));
-  }
-  display.clear();
 }
