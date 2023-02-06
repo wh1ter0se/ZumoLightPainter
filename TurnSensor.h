@@ -45,6 +45,9 @@ int16_t gyroOffset;
 // between readings of the gyro.
 uint16_t gyroLastUpdate = 0;
 
+// paintLine prototype so it can be used in main loop 
+void paintLine(double inches, char pixels[54], bool leftToRight = true, int motorSpeed = 150);
+
 
 // This should be called to set the starting point for measuring
 // a turn.  After calling this, turnAngle will be 0.
