@@ -27,6 +27,11 @@ uint8_t x;
 uint8_t y;
 uint8_t state;
 
+//Prototypes
+void turnCW(double degrees, int motorSpeed = 100);
+void paintLine(double inches, char pixels[54], bool leftToRight = true, int motorSpeed = 150);
+void drawImage(double width_in, double height_in, int rows);
+
 // Image
 char image[36][54] = {
   {'W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W'},
@@ -90,6 +95,7 @@ void setup() {
   y = 0;
   state = 0;
   printStuff();
+  Wire.begin();
 }
 
 
@@ -110,7 +116,7 @@ void loop() {
         display.clear();
         display.print(F("yay"));
         delay(1000);
-        paintLine(36,image[30]);
+        //paintLine(54,image[18]);
         turnCW(90);
       }
       break;
@@ -122,9 +128,7 @@ void loop() {
 
 /**
  * Turns clockwise by running the motors in opposite direction, for
- * specified angle delta. Uses the TurnSensor.h file.
- * Code used from:
- * https://github.com/pvcraven/zumo_32u4_examples/blob/master/TurnExample/TurnExample.ino
+ * specified angle delta.
  * 
  * Parameters
  * degrees    : positive clockwise angle to turn, in degrees
@@ -134,25 +138,33 @@ void turnCW(double degrees, int motorSpeed = 100) {
   turnSensorReset();
   delay(500);
   turnSensorUpdate();
-  // double init_angle = turnAngle;
-  // double setpoint = init_angle + (turnAngle1*degrees);
-  double setpoint = degrees;
-
+  int init_angle = ((((int32_t)turnAngle>>16)*360)>>16);
+  int setpoint = init_angle + ((((int32_t)turnAngle90>>16)*360)>>16);
+  Serial.print(init_angle);
+  Serial.print(F(" "));
+  Serial.print(setpoint);
+  Serial.print(F(" "));
+  Serial.print((((int32_t)turnAngle90>>16)*360)>>16);
+  Serial.print(F("\n"));
+  display.clear();
 
   motors.setSpeeds(motorSpeed, -motorSpeed); // activate motors
   bool transit = true;
   while (transit) {
     turnSensorUpdate();
-    
-    double angle = double(((int32_t)turnAngle >> 16) * 360) >> 16;
-    double error = setpoint - angle;
-    Serial.print((int)error);
+    int error = ((((int32_t)turnAngle>>16)*360)>>16) - setpoint;
+    Serial.print((((int32_t)turnAngle>>16)*360)>>16);
+    Serial.print(F(" "));
+    Serial.print(setpoint);
+    Serial.print(F(" "));
+    Serial.print(error);
     Serial.print(F("\n"));
-    if (error <= 0) { transit = false; }
+    if (error <= -180) { transit = false; }
   }
 
   motors.setSpeeds(0, 0); // stop motors
 }
+
 
 /**
  * Moves forward specified distance at constant, specified motor speed. 
@@ -198,6 +210,7 @@ void paintLine(double inches, char pixels[54], bool leftToRight = true, int moto
   encoders.getCountsAndResetRight();
   
   motors.setSpeeds(motorSpeed,motorSpeed); // activate motors
+  Serial.print(F("\n"));
 
   bool transit = true;
   while (transit) {
@@ -212,26 +225,34 @@ void paintLine(double inches, char pixels[54], bool leftToRight = true, int moto
     if (!leftToRight) { progress = 1 - progress; } // invert if zagging, otherwise leave as a zig
     int closestPixel_indx = int(round(progress*54));
     char closestPixel = pixels[closestPixel_indx];
+    Serial.print(closestPixel_indx);
+    Serial.print(F(" "));
     // if (leftToRight) { closestPixel = pixels[closestPixel_indx]; } // left for debugging, but not meant to be included as code
     // else             { closestPixel = pixels[px_x-closestPixel_indx-1]; }
-    switch (closestPixel) {
-      case 'W': // white -> no LED
-        ledRed(0);
-        ledYellow(0);
-        ledGreen(0);
-      case 'Y': // yellow -> yellow LED
-        ledRed(0);
-        ledYellow(1);
-        ledGreen(0);
-      case 'B': // black -> red LED
-        ledRed(1);
-        ledYellow(0);
-        ledGreen(0);
-      default: // unparsable char -> no LED
+    if (closestPixel == 'W') {
+      //case 87: // white -> no LED
         ledRed(0);
         ledYellow(0);
         ledGreen(0);
     }
+    else if(closestPixel == 'Y'){
+
+      ledRed(0);
+      ledYellow(1);
+      ledGreen(0);
+    } // yellow -> yellow LED
+    else if(closestPixel == 'B'){
+      ledRed(1);
+      ledYellow(0);
+      ledGreen(0);
+    }  // black -> red LED
+      
+    else{
+
+      ledRed(0);
+      ledYellow(0);
+      ledGreen(0);
+    } // unparsable char -> no LED
 
     if ((error_L<=0) || (error_R<=0)) { transit = false; }
   }
