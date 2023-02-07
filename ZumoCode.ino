@@ -82,8 +82,8 @@ void printStuff() { //Prints the menu, saves a little space to have it as a func
 void setup() {
   // DO NOT REMOVE; needed for gyro/turning
   turnSensorSetup(); 
-  delay(500);
   turnSensorReset();
+  Serial.begin(9600);
 
   // put your setup code here, to run once:
   x = 0;
@@ -111,6 +111,7 @@ void loop() {
         display.print(F("yay"));
         delay(1000);
         paintLine(36,image[30]);
+        turnCW(90);
       }
       break;
     case 1:
@@ -131,18 +132,22 @@ void loop() {
 */
 void turnCW(double degrees, int motorSpeed = 100) {
   turnSensorReset();
+  delay(500);
   turnSensorUpdate();
   // double init_angle = turnAngle;
   // double setpoint = init_angle + (turnAngle1*degrees);
   double setpoint = degrees;
 
-  motors.setSpeeds(motorSpeed, -motorSpeed); // activate motors
 
+  motors.setSpeeds(motorSpeed, -motorSpeed); // activate motors
   bool transit = true;
   while (transit) {
     turnSensorUpdate();
+    
     double angle = double(((int32_t)turnAngle >> 16) * 360) >> 16;
     double error = setpoint - angle;
+    Serial.print((int)error);
+    Serial.print(F("\n"));
     if (error <= 0) { transit = false; }
   }
 
@@ -207,8 +212,6 @@ void paintLine(double inches, char pixels[54], bool leftToRight = true, int moto
     if (!leftToRight) { progress = 1 - progress; } // invert if zagging, otherwise leave as a zig
     int closestPixel_indx = int(round(progress*54));
     char closestPixel = pixels[closestPixel_indx];
-    display.clear();
-    display.print(closestPixel);
     // if (leftToRight) { closestPixel = pixels[closestPixel_indx]; } // left for debugging, but not meant to be included as code
     // else             { closestPixel = pixels[px_x-closestPixel_indx-1]; }
     switch (closestPixel) {
