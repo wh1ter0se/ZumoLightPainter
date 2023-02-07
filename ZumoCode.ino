@@ -121,7 +121,9 @@ void loop() {
 
 /**
  * Turns clockwise by running the motors in opposite direction, for
- * specified angle delta.
+ * specified angle delta. Uses the TurnSensor.h file.
+ * Code used from:
+ * https://github.com/pvcraven/zumo_32u4_examples/blob/master/TurnExample/TurnExample.ino
  * 
  * Parameters
  * degrees    : positive clockwise angle to turn, in degrees
@@ -130,21 +132,22 @@ void loop() {
 void turnCW(double degrees, int motorSpeed = 100) {
   turnSensorReset();
   turnSensorUpdate();
-  double init_angle = turnAngle;
-  double setpoint = init_angle + (turnAngle1*degrees);
+  // double init_angle = turnAngle;
+  // double setpoint = init_angle + (turnAngle1*degrees);
+  double setpoint = degrees;
 
   motors.setSpeeds(motorSpeed, -motorSpeed); // activate motors
 
   bool transit = true;
   while (transit) {
     turnSensorUpdate();
-    double error = setpoint - turnAngle;
+    double angle = double(((int32_t)turnAngle >> 16) * 360) >> 16;
+    double error = setpoint - angle;
     if (error <= 0) { transit = false; }
   }
 
   motors.setSpeeds(0, 0); // stop motors
 }
-
 
 /**
  * Moves forward specified distance at constant, specified motor speed. 
