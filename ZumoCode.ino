@@ -29,6 +29,7 @@ uint8_t state;
 
 //Prototypes
 void turnCW(double degrees, int motorSpeed = 100);
+void turnCCW(double degrees, int motorSpeed = 100);
 void paintLine(double inches, char pixels[54], bool leftToRight = true, int motorSpeed = 150);
 void drawImage(double width_in, double height_in, int rows);
 
@@ -115,13 +116,16 @@ void loop() {
         state++;
         display.clear();
         display.print(F("yay"));
-        delay(1000);
-        //paintLine(54,image[18]);
-        turnCW(90);
       }
       break;
     case 1:
       delay(1000);
+      drawImage(16,16,36);
+    case 2:
+      delay(500);
+      ledGreen(1);
+      ledYellow(1);
+      ledRed(1);
   }
 }
 
@@ -140,29 +144,37 @@ void turnCW(double degrees, int motorSpeed = 100) {
   turnSensorUpdate();
   int init_angle = ((((int32_t)turnAngle>>16)*360)>>16);
   int setpoint = init_angle + ((((int32_t)turnAngle90>>16)*360)>>16);
-  Serial.print(init_angle);
-  Serial.print(F(" "));
-  Serial.print(setpoint);
-  Serial.print(F(" "));
-  Serial.print((((int32_t)turnAngle90>>16)*360)>>16);
-  Serial.print(F("\n"));
   display.clear();
+  display.print(F("CW Turn"));
 
   motors.setSpeeds(motorSpeed, -motorSpeed); // activate motors
   bool transit = true;
   while (transit) {
     turnSensorUpdate();
     int error = ((((int32_t)turnAngle>>16)*360)>>16) - setpoint;
-    Serial.print((((int32_t)turnAngle>>16)*360)>>16);
-    Serial.print(F(" "));
-    Serial.print(setpoint);
-    Serial.print(F(" "));
-    Serial.print(error);
-    Serial.print(F("\n"));
     if (error <= -180) { transit = false; }
   }
 
   motors.setSpeeds(0, 0); // stop motors
+}
+
+void turnCCW(double degrees, int motorSpeed = 100) {
+  turnSensorReset();
+  delay(500);
+  turnSensorUpdate();
+  int init_angle = ((((int32_t)turnAngle>>16)*360)>>16);
+  int setpoint = init_angle - ((((int32_t)turnAngle90>>16)*360)>>16);
+  display.clear();
+  display.print(F("CCW Turn"));
+
+  motors.setSpeeds(-motorSpeed, motorSpeed);
+  bool transit = true;
+  while (transit){
+    turnSensorUpdate();
+    int error = setpoint + ((((int32_t)turnAngle>>16)*360)>>16);
+    if(error>=0) { transit = false; }
+  }
+  motors.setSpeeds(0,0);
 }
 
 
@@ -203,7 +215,7 @@ void forward(double inches, int motorSpeed = 150) {
  * inches : distance to drive forward and draw row across
  * pixels : row of 56 (px_x) characters representing color, pulled from image
 */
-void paintLine(double inches, char pixels[54], bool leftToRight = true, int motorSpeed = 150) {
+void paintLine(double inches, char pixels[54], bool leftToRight, int motorSpeed = 150) {
   double setpoint = ticks_per_in * inches;
 
   encoders.getCountsAndResetLeft(); // set counts to 0 (overflows at 32767 ticks, >10ft)
@@ -222,18 +234,17 @@ void paintLine(double inches, char pixels[54], bool leftToRight = true, int moto
     // LED code
     double delta_avg = (delta_L + delta_R) / 2;
     double progress = delta_avg / setpoint;
-    if (!leftToRight) { progress = 1 - progress; } // invert if zagging, otherwise leave as a zig
-    int closestPixel_indx = int(round(progress*54));
+    int closestPixel_indx;
+    if (!leftToRight) { closestPixel_indx = 53-int(round(progress*54)); } // invert if zagging, otherwise leave as a zig
+    else{ closestPixel_indx = int(round(progress*54)); }
     char closestPixel = pixels[closestPixel_indx];
-    Serial.print(closestPixel_indx);
-    Serial.print(F(" "));
     // if (leftToRight) { closestPixel = pixels[closestPixel_indx]; } // left for debugging, but not meant to be included as code
     // else             { closestPixel = pixels[px_x-closestPixel_indx-1]; }
     if (closestPixel == 'W') {
-      //case 87: // white -> no LED
+      // white -> no LED
         ledRed(0);
         ledYellow(0);
-        ledGreen(0);
+        ledGreen(1);
     }
     else if(closestPixel == 'Y'){
 
@@ -271,19 +282,19 @@ void paintLine(double inches, char pixels[54], bool leftToRight = true, int moto
  * rows      : number of rows to zigzag
 */
 void drawImage(double width_in, double height_in, int rows) {
-  double row_height_in = height_in / rows;
-  
-  for (int i = 0; i < rows; i++) {
-    int image_row_indx = int(round((i)*(36/rows))); // pick the closest pixel row
-
-    char image_row[54]; // extract the row
-    for (int j = 0; j < 54; j++) {
-      image_row[j] = image[image_row_indx][j];
+  bool leftToRight;
+  for(int i = 0;i<rows;i++){
+    leftToRight = !(i%2);
+    paintLine(width_in,image[i],leftToRight);
+    if(leftToRight){
+      turnCW(90);
+      forward((height_in/rows));
+      turnCW(90);
     }
-
-    paintLine(width_in, image_row, (i%2)==0);
-    turnCW(90);
-    forward(row_height_in);
-    turnCW(90);
+    else{
+      turnCCW(90);
+      forward((height_in/rows));
+      turnCCW(90);
+    }
   }
 }
