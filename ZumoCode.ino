@@ -22,6 +22,10 @@ const double ticks_per_rev = 12 * 75.81; // this may be 51.45, 75.81, or 100.37
 const double in_per_rev = M_PI * tread_diam_in; // circumference = 2*pi*r = pi*D
 const double ticks_per_in = ticks_per_rev / in_per_rev;
 
+// Compass heading
+double init_heading;
+double setpoint_heading;
+
 // Menu vars
 uint8_t x;
 uint8_t y;
@@ -97,6 +101,7 @@ void setup() {
   state = 0;
   printStuff();
   Wire.begin();
+  imu.enableDefault();
 }
 
 
@@ -153,6 +158,36 @@ void turnCW(double degrees, int motorSpeed = 100) {
     turnSensorUpdate();
     int error = ((((int32_t)turnAngle>>16)*360)>>16) - setpoint;
     if (error <= -180) { transit = false; }
+  }
+
+  motors.setSpeeds(0, 0); // stop motors
+}
+
+/**
+ * Turns clockwise by running the motors in opposite direction, for
+ * specified angle delta.
+ * 
+ * Parameters
+ * degrees    : positive clockwise angle to turn, in degrees
+ * motorSpeed : motor rate to travel at (0-400, unitless)
+*/
+void turnCW_mag(double degrees, int motorSpeed = 100) {
+  setpoint_heading = (setpoint_heading + degrees) % 360.0;
+  //void hasOverflow = (setpoint >= 360.0); 
+
+  double kP = 1.0;
+  double tolerance = 1.0; // degrees
+
+  // motors.setSpeeds(motorSpeed, -motorSpeed); // activate motors
+  bool transit = true;
+  while (transit) {
+    real_heading = getHeading();
+    angle_error = setpoint_heading - real_heading;
+    
+    if (abs(angle_error) <= tolerance) { transit = false; }
+
+    motor_diff = kP * angle_error;
+    motors.setSpeeds(motorSpeed+motor_diff, -motorSpeed-motor_diff);
   }
 
   motors.setSpeeds(0, 0); // stop motors
@@ -283,6 +318,10 @@ void paintLine(double inches, char pixels[54], bool leftToRight, int motorSpeed 
 */
 void drawImage(double width_in, double height_in, int rows) {
   bool leftToRight;
+  
+  init_heading = getHeading()
+  setpoint_heading = init_heading;
+
   for(int i = 0;i<rows;i++){
     leftToRight = !(i%2);
     paintLine(width_in,image[i],leftToRight);
@@ -297,4 +336,45 @@ void drawImage(double width_in, double height_in, int rows) {
       turnCCW(90);
     }
   }
+}
+
+/*
+ * Returns the heading of the Zumo based on the current magnetometer reading.
+ * Returns value (in degrees) from 0 to 360
+ * 
+ * Source:
+ * RSE Drive / Projects / Spring 21 / Zumo Videos / Purple Flaming Ducks (Nathan Wolf)
+ */
+double getHeading() {
+  //reads in data from magnetometer and calculates corrected point doing actual - error
+  imu.readMag();
+  xyzData correctedPoint = {imu.m.x - error.x, imu.m.y - error.y, imu.m.z - error.z};
+
+  double heading = atan2( correctedPoint.x, correctedPoint.y) - PI / 180; //calculates the heading in radians based on the following equation
+  //the following if, else if statements shift the heading to an interval of 0 to 2*pi
+  if (heading > PI) 
+  {
+    heading -= (2 * PI);
+  }
+  else if (heading < -PI) 
+  {
+    heading += (2 * PI);
+  }
+  else if (heading < 0) 
+  {
+    heading += 2 * PI;
+  }
+  heading *= (180 / PI); //rad to degrees
+  heading = 360 - heading; // invert
+  int rotateAngle = 90;
+  heading = heading + rotateAngle; //rotate to have 0 = north
+  if(heading > 360)
+  {
+    heading -= 360;
+  }
+  else if(heading < 0)
+  {
+    heading += 360;
+  }
+  return heading;  
 }
